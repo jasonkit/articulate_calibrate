@@ -30,7 +30,7 @@ function ejp = simulation(noise_lv, verbose)
     [R_mirror2_observed, R_cam_z, measurements_fix_theta] = simulation_mirror(sim_config, ejp.R_door);
     R_mirror_observed = ejp.R_door'*R_mirror2_observed;
 
-    [ejp.R_mirror, ejp.R_mirror2, ejp.R_cam, ejp.R_cam2, ejp.R_theta] = estimate_R_mirror_and_cam(measurements, ejp.R_door, R_mirror_observed, R_cam_z, measurements(1).R, false);
+    [ejp.R_mirror, ejp.R_mirror2, ejp.R_cam, ejp.R_cam2, ejp.R_theta] = estimate_R_mirror_and_cam(measurements, ejp.R_door, R_mirror_observed, R_cam_z, measurements(1).R, true);
 
     ejp.theta0 = atan2(ejp.R_theta(2,1), ejp.R_theta(1,1));
 
@@ -61,7 +61,7 @@ function [R_mirror2_estimated, R_cam_z, measurements] = simulation_mirror(sim_co
         end
     end
     
-    R_mirror2_estimated = estimate_observed_R_mirror2(measurements, R_door_estimated);
+    R_mirror2_estimated = estimate_observed_R_mirror2(measurements);
     R_cam_z = estimate_z_axis(measurements, R_mirror2_estimated);
 end
 
@@ -94,7 +94,7 @@ function R_door = estimate_R_door(measurements)
     R_door = construct_orientation_matrix(a, [1;0;0]);
 end
 
-function R_mirror2 = estimate_observed_R_mirror2(measurements, R_door)
+function R_mirror2 = estimate_observed_R_mirror2(measurements)
     a = estimate_rotation_axis(measurements);
     R_mirror2 = construct_orientation_matrix(a, [1;0;0]);
 end
@@ -115,14 +115,7 @@ end
 function [R_mirror, R_mirror2, R_cam, R_cam2, R_theta] = estimate_R_mirror_and_cam(measurements, R_door, R_mirror_observed, R_cam_z, R_ref, is_ignore_theta0)
     npose = size(measurements,2);
     a = R_cam_z';
-    b = [0;0;0];
-
-    for i=1:npose
-        B = R_door'*measurements(i).R;
-        b = b + B(3,:)';
-    end
-    b = b/npose;
-    b = b/norm(b);
+    b = estimate_z_axis(measurements, R_door);
 
     m = R_mirror_observed(3,:);
 
@@ -140,15 +133,22 @@ function [R_mirror, R_mirror2, R_cam, R_cam2, R_theta] = estimate_R_mirror_and_c
     
     if is_ignore_theta0
         R_theta = eye(3);
+        R_mirror = R_mirror_observed;
+        R_mirror2 = R_door * R_mirror;
+        R_mirror2 = construct_orientation_matrix(R_mirror2(:,3), [1;0;0]);
+        
+        R_cam = R_mirror' * R_door' * R_ref;
+        R_cam2 = R_door' * R_ref;
+    else
+        R_cam2 = R_theta' * R_cam2;
+        
+        % reconstruct the real R_mirror and R_mirror2
+        R_mirror2 = R_door * R_theta' * R_mirror_observed;
+        R_mirror2 = construct_orientation_matrix(R_mirror2(:,3), [1;0;0]);
+        R_mirror = R_door' * R_mirror2;
+        R_cam = R_mirror' * R_door' * R_ref;
     end
 
-    R_cam2 = R_theta' * R_cam2;
-    
-    % reconstruct the real R_mirror and R_mirror2
-    R_mirror2 = R_door * R_theta' * R_mirror_observed;
-    R_mirror2 = construct_orientation_matrix(R_mirror2(:,3), [1;0;0]);
-    R_mirror = R_door' * R_mirror2;
-    R_cam = R_mirror' * R_door' * R_ref;
 end
 
 function [angles, err] = estimate_rotation_angles(measurements, R1, R2, idx)
