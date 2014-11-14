@@ -2,12 +2,12 @@ function plot_error_against_noise_lv()
     jp = get_joint_param();
    
     noise_range = 0:.1:5;
-    num_simulation = 100;
+    num_simulation = 10;
 
     err_set = [];
     for noise_lv = noise_range
         disp(sprintf('noise lv: %f', noise_lv));
-        err_sum = zeros(1,8);
+        err_sum = zeros(1,9);
         parfor n = 1:num_simulation
             ejp = simulation(noise_lv, false);
             ejp.R_ref = ejp.R_door * ejp.R_mirror * ejp.R_cam;
@@ -20,6 +20,7 @@ function plot_error_against_noise_lv()
             err = [err, max(abs((ejp.t_o2d-jp.t_o2d)./jp.t_o2d))*100];
             err = [err, max(abs((ejp.t_d2m-jp.t_d2m)./jp.t_d2m))*100];
             err = [err, max(abs((ejp.t_m2c-jp.t_m2c)./jp.t_m2c))*100];
+            err = [err, max(abs((ejp.t_ref-jp.t_ref)./jp.t_ref))*100];
 
             err_sum = err_sum + err;
         end
@@ -35,7 +36,7 @@ function plot_error_against_noise_lv()
     plot(noise_range, err_set(:,3), 'b');
     plot(noise_range, err_set(:,4), 'm');
     plot(noise_range, err_set(:,5), 'c');
-    legend('theta0_{0}', 'R_{door}', 'R_{mirror}', 'R_{cam}', 'R_{ref}');
+    legend('theta_{0}', 'R_{door}', 'R_{mirror}', 'R_{cam}', 'R_{ref}');
     ylabel('deg');
     xlabel('noise level - x/1280 as variance');
 
@@ -44,7 +45,8 @@ function plot_error_against_noise_lv()
     hold on;
     plot(noise_range, err_set(:,7), 'g');
     plot(noise_range, err_set(:,8), 'b');
-    legend('t_{o2d}', 't_{d2m}', 't_{m2c}');
+    plot(noise_range, err_set(:,9), 'm');
+    legend('t_{o2d}', 't_{d2m}', 't_{m2c}', 't_{ref}');
     ylabel('% change');
     xlabel('noise level - x/1280 as variance');
 end

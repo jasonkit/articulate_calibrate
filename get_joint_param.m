@@ -10,7 +10,7 @@ function joint_param = get_joint_param()
     [U S V] = svd(H_cam_odo(1:3,1:3));
     R_cam_odo = U*V';
 
-    theta = 0;pi/18;
+    theta = 0;
     joint_param.theta0 = theta;
     joint_param.R_theta = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1];
 
@@ -27,4 +27,5 @@ function joint_param = get_joint_param()
     joint_param.t_m2c = [ 0.158; 0.067; -0.019];
 
     joint_param.R_ref = R_cam_odo;
+    joint_param.t_ref = joint_param.R_mirror2*joint_param.t_m2c + joint_param.R_door*joint_param.t_d2m + joint_param.t_o2d;
 end

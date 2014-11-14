@@ -30,8 +30,7 @@ function ejp = simulation(noise_lv, verbose)
     [R_mirror2_observed, R_cam_z, measurements_fix_theta] = simulation_mirror(sim_config, ejp.R_door);
     R_mirror_observed = ejp.R_door'*R_mirror2_observed;
 
-    [ejp.R_mirror, ejp.R_mirror2, ejp.R_cam, ejp.R_cam2, ejp.R_theta] = estimate_R_mirror_and_cam(measurements, ejp.R_door, R_mirror_observed, R_cam_z, measurements(1).R);
-    %[ejp.R_mirror, ejp.R_mirror2, ejp.R_cam, ejp.R_cam2, ejp.R_theta] = estimate_R_mirror_and_cam(measurements, ejp.R_door, R_mirror_observed, R_cam_z, joint_param.R_ref);
+    [ejp.R_mirror, ejp.R_mirror2, ejp.R_cam, ejp.R_cam2, ejp.R_theta] = estimate_R_mirror_and_cam(measurements, ejp.R_door, R_mirror_observed, R_cam_z, measurements(1).R, false);
 
     ejp.theta0 = atan2(ejp.R_theta(2,1), ejp.R_theta(1,1));
 
@@ -39,6 +38,7 @@ function ejp = simulation(noise_lv, verbose)
     [phi_m, phi_err] = estimate_phi(ejp, measurements_fix_theta);
 
     ejp = estimate_translation(joint_param.t_o2d(3), ejp, measurements, measurements_fix_theta, theta_m, phi_m);
+    ejp.t_ref = ejp.R_mirror2*ejp.t_m2c + ejp.R_door*ejp.t_d2m + ejp.t_o2d;
 
     if (verbose)
         print_err_report(joint_param, ejp, theta_err, phi_err);
@@ -112,7 +112,7 @@ function a = estimate_z_axis(measurements, R)
     a = a/norm(a);
 end
 
-function [R_mirror, R_mirror2, R_cam, R_cam2, R_theta] = estimate_R_mirror_and_cam(measurements, R_door, R_mirror_observed, R_cam_z, R_ref)
+function [R_mirror, R_mirror2, R_cam, R_cam2, R_theta] = estimate_R_mirror_and_cam(measurements, R_door, R_mirror_observed, R_cam_z, R_ref, is_ignore_theta0)
     npose = size(measurements,2);
     a = R_cam_z';
     b = [0;0;0];
@@ -137,6 +137,10 @@ function [R_mirror, R_mirror2, R_cam, R_cam2, R_theta] = estimate_R_mirror_and_c
 
     % base of first door movement pose, assume theta = phi = 0
     R_theta = ensure_pure_z_rotation((R_door' * R_ref * R_cam2')');
+    
+    if is_ignore_theta0
+        R_theta = eye(3);
+    end
 
     R_cam2 = R_theta' * R_cam2;
     
@@ -258,9 +262,11 @@ function print_err_report(jp,ejp, theta_err, phi_err)
     disp(sprintf('t_o2d error\t x: %f y: %f z: %f', ejp.t_o2d(1) - jp.t_o2d(1), ejp.t_o2d(2) - jp.t_o2d(2), ejp.t_o2d(3) - jp.t_o2d(3)));
     disp(sprintf('t_d2m error\t x: %f', ejp.t_d2m(1) - jp.t_d2m(1)));
     disp(sprintf('t_m2c error\t x: %f y: %f z: %f', ejp.t_m2c(1) - jp.t_m2c(1), ejp.t_m2c(2) - jp.t_m2c(2), ejp.t_m2c(3) - jp.t_m2c(3))); 
+    disp(sprintf('t_ref error\t x: %f y: %f z: %f', ejp.t_ref(1) - jp.t_ref(1), ejp.t_ref(2) - jp.t_ref(2), ejp.t_ref(3) - jp.t_ref(3))); 
     disp('---'); 
     disp(sprintf('t_o2d %% error\t x: %f y: %f z: %f', 100*(ejp.t_o2d(1) - jp.t_o2d(1))/jp.t_o2d(1), 100*(ejp.t_o2d(2) - jp.t_o2d(2))/jp.t_o2d(2), 100*(ejp.t_o2d(3) - jp.t_o2d(3))/jp.t_o2d(3)));
     disp(sprintf('t_d2m %% error\t x: %f', 100*(ejp.t_d2m(1) - jp.t_d2m(1))/jp.t_d2m(1)));
     disp(sprintf('t_m2c %% error\t x: %f y: %f z: %f', 100*(ejp.t_m2c(1) - jp.t_m2c(1))/jp.t_m2c(1), 100*(ejp.t_m2c(2) - jp.t_m2c(2))/jp.t_m2c(2), 100*(ejp.t_m2c(3) - jp.t_m2c(3))/jp.t_m2c(3)));
+    disp(sprintf('t_ref %% error\t x: %f y: %f z: %f', 100*(ejp.t_ref(1) - jp.t_ref(1))/jp.t_ref(1), 100*(ejp.t_ref(2) - jp.t_ref(2))/jp.t_ref(2), 100*(ejp.t_ref(3) - jp.t_ref(3))/jp.t_ref(3)));
 end
 
