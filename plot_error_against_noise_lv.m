@@ -6,7 +6,7 @@ function plot_error_against_noise_lv()
     for noise_lv = noise_range
         ejp = simulation(noise_lv);
         err = [];
-        err = [err, abs(ejp.phi0 - jp.phi0)/pi*180];
+        err = [err, abs(ejp.theta0 - jp.theta0)/pi*180];
         err = [err, max(abs(axis_diff_in_euler(ejp.R_door, jp.R_door)))];
         err = [err, max(abs(axis_diff_in_euler(ejp.R_mirror, jp.R_mirror)))];
         err = [err, max(abs(axis_diff_in_euler(ejp.R_cam, jp.R_cam)))];
@@ -23,7 +23,7 @@ function plot_error_against_noise_lv()
     plot(noise_range, err_set(:,2), 'g');
     plot(noise_range, err_set(:,3), 'b');
     plot(noise_range, err_set(:,4), 'm');
-    legend('phi_{0}', 'R_{door}', 'R_{mirror}', 'R_{cam}');
+    legend('theta0_{0}', 'R_{door}', 'R_{mirror}', 'R_{cam}');
     ylabel('deg');
     xlabel('noise level - x/1280 as variance');
 
