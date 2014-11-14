@@ -1,9 +1,12 @@
-function ejp = simulation(noise_lv)
+function ejp = simulation(noise_lv, verbose)
     if nargin == 0
         noise_lv = 5;
+        verbose = true;
+    elseif nargin == 1
+        verbose = true;
     end
 
-    sim_config = get_simulation_config(noise_lv,1000,50);
+    sim_config = get_simulation_config(noise_lv, 1000, 50, verbose);
     joint_param = get_joint_param();
 
     % door rotation 0 to -70 deg
@@ -37,7 +40,9 @@ function ejp = simulation(noise_lv)
 
     ejp = estimate_translation(joint_param.t_o2d(3), ejp, measurements, measurements_fix_theta, theta_m, phi_m);
 
-    print_err_report(joint_param, ejp, theta_err, phi_err);
+    if (verbose)
+        print_err_report(joint_param, ejp, theta_err, phi_err);
+    end
 end
 
 function [R_mirror2_estimated, R_cam_z, measurements] = simulation_mirror(sim_config, R_door_estimated)
@@ -201,15 +206,17 @@ function ejp = estimate_translation(h, ejp, measurements_fix_phi, measurements_f
 
 end
 
-function sim_config = get_simulation_config(noise_level, npts, npose);
+function sim_config = get_simulation_config(noise_level, npts, npose, verbose);
     sim_config = {};
     sim_config.npts = npts;
     sim_config.npose = npose;
     sim_config.aspect_ratio = 1.6;
     sim_config.noise = noise_level/1280;
     sim_config.clouds = generate_point_cloud(sim_config.npts,20,30)';
-
-    disp(sprintf('[Simulation Config] Noise Level: %d, #Point: %d #Pose: %d', noise_level, npts, npose));
+    
+    if (verbose)
+        disp(sprintf('[Simulation Config] Noise Level: %d, #Point: %d #Pose: %d', noise_level, npts, npose));
+    end
 end
 
 function euler = axis_diff_in_euler(R1, R2)
