@@ -67,25 +67,21 @@ end
 
 function a = estimate_rotation_axis(measurements)
     npose = size(measurements,2);
-    a = [0;0;0];
-
+    A = [];
     for i=1:npose
-        A = zeros(3,3);
         if i == 1;
-            A = measurements(1).R*measurements(npose).R' - eye(3);
+            A = [A; measurements(1).R*measurements(npose).R' - eye(3)];
         else
-            A = measurements(i).R*measurements(i-1).R' - eye(3);
+            A = [A; measurements(i).R*measurements(i-1).R' - eye(3)];
         end
-        [U S V] = svd(A);
-        a_estimated = V(:,3);
-        if (a_estimated(1) < 0)
-            a_estimated = -a_estimated;
-        end
-
-        a = a + a_estimated;
+    end
+    
+    [U S V] = svd(A);
+    a  = V(:,3);
+    if (a(1) < 0)
+        a = -a;
     end
 
-    a = a/npose;
     a = a/norm(a);
 end
 
@@ -102,13 +98,15 @@ end
 function a = estimate_z_axis(measurements, R)
     
     npose = size(measurements,2);
-    a = [0;0;0];
+    A = zeros(3,3); 
     for i=1:npose
-        B = R'*measurements(i).R;
-        a = a + B(3,:)';
+        A = A + R'*measurements(i).R;
     end
-
-    a = a/npose;
+    
+    [U S V] = svd(A);
+    A = U*diag([1,1,det(U)*det(V)])*V';
+    
+    a = A(3,:)';
     a = a/norm(a);
 end
 
@@ -236,6 +234,34 @@ function R = ensure_pure_z_rotation(R)
     R = [cos(a) -sin(a) 0; ...
          sin(a)  cos(a) 0; ...
              0       0  1]; 
+end
+
+function R = rotation_matrix_from_angle(angle)
+    R = [cos(angle), -sin(angle), 0; ...
+         sin(angle),  cos(angle), 0; ...
+                  0,           0, 1];
+end
+
+function reconstuctCameraPoses(angles, jp, measurements, is_door)
+    n = size(angles,2);
+    for i = 1:n
+        H = eye(4);
+        if (is_door)
+            H = construct_transfomation_from_angles(jp, angles(i), 0);
+        else
+            H = construct_transfomation_from_angles(jp, jp.theta0, angles(i));
+        end
+
+        inv(H)*[measurements(i).R measurements(i).t; 0 0 0 1]
+    end
+end
+
+function H = construct_transfomation_from_angles(jp, theta, phi)
+    R1 = jp.R_door * rotation_matrix_from_angle(theta);
+    R2 = jp.R_mirror * rotation_matrix_from_angle(phi);
+    R = R1*R2*jp.R_cam;
+    t = R1*R2*jp.t_m2c + R1*jp.t_d2m + jp.t_o2d;
+    H = [R t; 0 0 0 1];
 end
 
 function print_err_report(jp,ejp, theta_err, phi_err)
