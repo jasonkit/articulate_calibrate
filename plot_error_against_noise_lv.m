@@ -4,11 +4,12 @@ function plot_error_against_noise_lv()
     noise_range = 0:.1:5;
     num_simulation = 10;
 
-    err_set = [];
+    err_set_mean = [];
+    err_set_sd = [];
     for noise_lv = noise_range
         disp(sprintf('noise lv: %f', noise_lv));
-        err_sum = zeros(1,9);
-        parfor n = 1:num_simulation
+        err_all = [];
+        for n = 1:num_simulation
             ejp = simulation(noise_lv, false);
             ejp.R_ref = ejp.R_door * ejp.R_mirror * ejp.R_cam;
             err = [];
@@ -22,30 +23,34 @@ function plot_error_against_noise_lv()
             err = [err, max(abs((ejp.t_m2c-jp.t_m2c)./jp.t_m2c))*100];
             err = [err, max(abs((ejp.t_ref-jp.t_ref)./jp.t_ref))*100];
 
-            err_sum = err_sum + err;
+            err_all = [err_all; err];
         end
         
-        err_set = [err_set; (err_sum/num_simulation)];
+        err_set_mean = [err_set_mean; mean(err_all)];
+        err_set_sd = [err_set_sd; sqrt(var(err_all))];
     end
     clf;
     figure(1);
     subplot(2,1,1);
-    plot(noise_range, err_set(:,1), 'r');
     hold on;
-    plot(noise_range, err_set(:,2), 'g');
-    plot(noise_range, err_set(:,3), 'b');
-    plot(noise_range, err_set(:,4), 'm');
-    plot(noise_range, err_set(:,5), 'c');
+    plotcolor = ['m', 'r', 'g', 'm', 'c'];
+    for i=1:length(plotcolor)
+        plot(noise_range, err_set_mean(:,i), plotcolor(i));
+    end
+    for i=1:length(plotcolor)
+        fill( [noise_range fliplr(noise_range)],  [err_set_mean(:,i)'+err_set_sd(:,i)' fliplr(err_set_mean(:,i)'-err_set_sd(:,i)')], plotcolor(i), 'EdgeColor', plotcolor(i), 'EdgeAlpha', .25, 'LineStyle', '--');
+        alpha(.1);
+    end
     legend('theta_{0}', 'R_{door}', 'R_{mirror}', 'R_{cam}', 'R_{ref}');
     ylabel('deg');
     xlabel('noise level - x/1280 as variance');
 
     subplot(2,1,2);
-    plot(noise_range, err_set(:,6), 'r');
+    plot(noise_range, err_set_mean(:,6), 'r');
     hold on;
-    plot(noise_range, err_set(:,7), 'g');
-    plot(noise_range, err_set(:,8), 'b');
-    plot(noise_range, err_set(:,9), 'm');
+    plot(noise_range, err_set_mean(:,7), 'g');
+    plot(noise_range, err_set_mean(:,8), 'b');
+    plot(noise_range, err_set_mean(:,9), 'm');
     legend('t_{o2d}', 't_{d2m}', 't_{m2c}', 't_{ref}');
     ylabel('% change');
     xlabel('noise level - x/1280 as variance');

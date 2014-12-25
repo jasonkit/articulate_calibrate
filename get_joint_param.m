@@ -10,7 +10,8 @@ function joint_param = get_joint_param()
     [U S V] = svd(H_cam_odo(1:3,1:3));
     R_cam_odo = U*V';
 
-    theta = 0;
+    % when this is non-zero, remember to set last argument of estimate_R_mirror_and_cam to false
+    theta = pi/10;
     joint_param.theta0 = theta;
     joint_param.R_theta = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1];
 
