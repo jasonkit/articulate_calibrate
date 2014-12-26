@@ -9,6 +9,45 @@ function ejp = simulation(noise_lv, verbose)
     sim_config = get_simulation_config(noise_lv, 1000, 50, verbose);
     joint_param = get_joint_param();
 
+    measurements_fix_phi = simulate_door_movement(sim_config, joint_param);
+    measurements_fix_theta = simulate_mirror_movement(sim_config, joint_param);
+    
+    % estimated joint param
+    ejp = {};
+    R_door_z = estimate_z_axis(measurements_fix_phi);
+    ejp.R_door = construct_orientation_matrix(R_door_z, [1;0;0]);
+
+    ejp.R_theta = eye(3);
+    R_ref = measurements_fix_phi(1).R;
+    R_ref2 = measurements_fix_theta(1).R;
+   
+    is_ignore_theta0 = false;
+    
+    if is_ignore_theta0 == false
+        ejp.R_theta = ejp.R_door' * R_ref2 * R_ref' * ejp.R_door;
+    end
+    ejp.theta0 = atan2(ejp.R_theta(2,1), ejp.R_theta(1,1));
+    
+    R_mirror2_z = estimate_z_axis(measurements_fix_theta);
+    R_mirror2_z = ejp.R_door * ejp.R_theta' * ejp.R_door' * R_mirror2_z;
+    ejp.R_mirror2 = construct_orientation_matrix(R_mirror2_z, [1;0;0]);
+    ejp.R_mirror  = ejp.R_door' * ejp.R_mirror2;
+    
+    ejp.R_cam     = ejp.R_mirror' * ejp.R_door' * R_ref;
+    ejp.R_cam2    = ejp.R_door' * R_ref;
+
+    [theta_m, theta_err] = estimate_theta(ejp, measurements_fix_phi);
+    [phi_m, phi_err] = estimate_phi(ejp, measurements_fix_theta);
+
+    ejp = estimate_translation(joint_param.t_o2d(3), ejp, measurements_fix_phi, measurements_fix_theta, theta_m, phi_m);
+    ejp.t_ref = ejp.R_mirror2*ejp.t_m2c + ejp.R_door*ejp.t_d2m + ejp.t_o2d;
+
+    if (verbose)
+        print_err_report(joint_param, ejp, theta_err, phi_err);
+    end
+end
+
+function measurements = simulate_door_movement(sim_config, joint_param)
     % door rotation 0 to -70 deg
     theta = rand(1,sim_config.npose)*pi*(70.0/180.0);
     theta = [0 theta];
@@ -21,33 +60,9 @@ function ejp = simulation(noise_lv, verbose)
             measurements = [measurements, measurement];
         end
     end
-
-    % estimated joint param
-    ejp = {};
-
-    ejp.R_door = estimate_R_door(measurements);
-
-    [R_mirror2_observed, measurements_fix_theta] = simulation_mirror(sim_config, ejp.R_door);
-    R_mirror_observed = ejp.R_door'*R_mirror2_observed;
-
-    [ejp.R_mirror, ejp.R_mirror2, ejp.R_cam, ejp.R_cam2, ejp.R_theta] = estimate_R_mirror_and_cam(measurements, ejp.R_door, R_mirror_observed, measurements(1).R, measurements_fix_theta(1).R, false);
-
-    ejp.theta0 = atan2(ejp.R_theta(2,1), ejp.R_theta(1,1));
-
-    [theta_m, theta_err] = estimate_theta(ejp, measurements);
-    [phi_m, phi_err] = estimate_phi(ejp, measurements_fix_theta);
-
-    ejp = estimate_translation(joint_param.t_o2d(3), ejp, measurements, measurements_fix_theta, theta_m, phi_m);
-    ejp.t_ref = ejp.R_mirror2*ejp.t_m2c + ejp.R_door*ejp.t_d2m + ejp.t_o2d;
-
-    if (verbose)
-        print_err_report(joint_param, ejp, theta_err, phi_err);
-    end
 end
 
-function [R_mirror2_estimated, measurements] = simulation_mirror(sim_config, R_door_estimated)
-    joint_param = get_joint_param();
-
+function measurements = simulate_mirror_movement(sim_config, joint_param)
     % mirror rotation 0 to 45 deg
     phi = rand(1,sim_config.npose)*pi/4;
     phi = [0 phi];
@@ -60,15 +75,11 @@ function [R_mirror2_estimated, measurements] = simulation_mirror(sim_config, R_d
             measurements = [measurements, measurement];
         end
     end
-    
-    R_mirror2_estimated = estimate_observed_R_mirror2(measurements);
 end
 
-% actually this is not estimating rotational axis!
-% it is finding the 3rd column(z-axis) of R_mirror2 or R_door from measurements
 % Given R_i = R_a*R_z(i)*R_b
 % find 3rd column of R_a
-function a = estimate_z_axis_1(measurements)
+function a = estimate_z_axis(measurements)
     npose = size(measurements,2);
     A = [];
     for i=1:npose
@@ -86,50 +97,6 @@ function a = estimate_z_axis_1(measurements)
     end
 
     a = a/norm(a);
-end
-
-function R_door = estimate_R_door(measurements)
-    a = estimate_z_axis_1(measurements);
-    R_door = construct_orientation_matrix(a, [1;0;0]);
-end
-
-function R_mirror2 = estimate_observed_R_mirror2(measurements)
-    a = estimate_z_axis_1(measurements);
-    R_mirror2 = construct_orientation_matrix(a, [1;0;0]);
-end
-
-% given R_a and R_i = R_a*R_z(i)*R_b
-% find 3rd row of R_b
-function a = estimate_z_axis_2(measurements, R)
-    
-    npose = size(measurements,2);
-    A = zeros(3,3); 
-    for i=1:npose
-        A = A + R'*measurements(i).R;
-    end
-    
-    [U S V] = svd(A);
-    A = U*diag([1,1,det(U)*det(V)])*V';
-    
-    a = A(3,:)';
-    a = a/norm(a);
-end
-
-
-function [R_mirror, R_mirror2, R_cam, R_cam2, R_theta] = estimate_R_mirror_and_cam(measurements, R_door, R_mirror_observed, R_ref, R_ref2, is_ignore_theta0)
-
-    R_theta = eye(3);
-
-    if is_ignore_theta0 == false
-        R_theta = R_door'*R_ref2*R_ref'*R_door;
-    end
-
-    % reconstruct the real R_mirror and R_mirror2
-    R_mirror2 = R_door * R_theta' * R_mirror_observed;
-    R_mirror2 = construct_orientation_matrix(R_mirror2(:,3), [1;0;0]);
-    R_mirror = R_door' * R_mirror2;
-    R_cam = R_mirror' * R_door' * R_ref;
-    R_cam2 = R_door' * R_ref;
 end
 
 function [angles, err] = estimate_rotation_angles(measurements, R1, R2, idx)
@@ -210,13 +177,6 @@ function euler = axis_diff_in_euler(R1, R2)
     y = atan2(-R(3,1),sqrt(R(3,2)^2 + R(3,3)^2))*180/pi;
     z = atan2(R(2,1),R(1,1))*180/pi;
     euler = [x,y,z];
-end
-
-function R = ensure_pure_z_rotation(R)
-    a = atan2(R(2,1), R(1,1));
-    R = [cos(a) -sin(a) 0; ...
-         sin(a)  cos(a) 0; ...
-             0       0  1]; 
 end
 
 function R = rotation_matrix_from_angle(angle)
