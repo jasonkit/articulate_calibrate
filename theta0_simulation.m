@@ -6,7 +6,7 @@ for psy = [1:.1:15];
     psy
     theta0_err = [];
     parfor i = 1:n
-        ejp = simulation(2, false, theta0, psy);
+        ejp = simulation(1, false, theta0, psy);
         theta0_estimated = ejp.theta0;
         theta0_err = [theta0_err; abs(theta0_estimated-theta0)];
     end

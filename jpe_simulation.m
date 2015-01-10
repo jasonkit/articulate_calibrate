@@ -2,8 +2,8 @@ function sim_result = run_jpe()
     theta0 = 0; %pi*10/180;
     jp = get_joint_param(theta0);
    
-    noise_range = 0:.2:5;
-    num_simulation = 200;
+    noise_range = 0:2:50;
+    num_simulation = 100;
 
     n = size(noise_range,2);
     

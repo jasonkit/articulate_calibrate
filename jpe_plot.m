@@ -1,4 +1,4 @@
-function plot_jpe()
+function jpe_plot()
     load('jpe_result');
     jp = sim_result.jp;
     ejps = sim_result.ejps;
@@ -79,7 +79,7 @@ function plot_jpe()
         hold on;
         plot(noise_range, err_set_mean(:,k), 'b');
         xlabel('noise level (pixel)');
-        ylabel(sprintf('Error in %s_{ref} (deg)', ylabels{i}));
+        ylabel(sprintf('Error in %s (deg)', ylabels{i}));
     end
     
     figure(8);
@@ -92,8 +92,11 @@ function plot_jpe()
         hold on;
         plot(noise_range, err_set_mean(:,k), 'b');
         xlabel('noise level (pixel)');
-        ylabel(sprintf('Error in %s_{ref} (cm)', ylabels{i}));
+        ylabel(sprintf('Error in %s (cm)', ylabels{i}));
     end
+
+    err_set_mean(6,:) + err_set_sd(6,:)
+    err_set_mean(26,:) + err_set_sd(26,:)
 
 end
 

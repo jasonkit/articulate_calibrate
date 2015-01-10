@@ -1,6 +1,15 @@
-function measurements = simulate_relative_movement(joint_param, sim_config, angles)
+function measurements = simulate_relative_movement(joint_param, sim_config, angles, is_angle)
 
-    n = size(angles,1);
+    if nargin == 3
+        is_angle = true;
+    end
+
+    if is_angle == true
+        n = size(angles,1);
+    else
+        Ps = angles;
+        n = size(Ps,3);
+    end
 
     measurements = [];
     prev_features = [];
@@ -8,35 +17,57 @@ function measurements = simulate_relative_movement(joint_param, sim_config, angl
     for i=1:n
         measurement = {};
 
-        theta = angles(i,1);
-        phi = angles(i,2);
+        if is_angle == true
+            theta = angles(i,1);
+            phi = angles(i,2);
 
-        [R_truth, t_truth] = compute_cam_pose(joint_param, theta, phi);
-        P = [R_truth t_truth;0 0 0 1];
+            [R_truth, t_truth] = compute_cam_pose(joint_param, theta, phi);
+            P = [R_truth t_truth;0 0 0 1];
+        else
+            P = Ps(:,:,i);
+        end
+
         P = inv(P);
         P = P(1:3,:);
         features = do_projection(P, sim_config.clouds, sim_config.aspect_ratio);
         num_features = size(features,1);
 
-        features(:,1:2) = features(:,1:2) + normrnd(zeros(num_features, 2), sim_config.noise*ones(num_features,2));
+        while true
+            features(:,1:2) = features(:,1:2) + normrnd(zeros(num_features, 2), sim_config.noise*ones(num_features,2));
+            if (i > 1)
+                matches = match_features(prev_features, features);
+                if (size(matches,1) >= 8)
+                    break;
+                end
+                disp('.');
+            else
+                break;
+            end
+        end
         
         if i == 1
             prev_features = features;
             measurement.R_rel = eye(3);
+            
+            if is_angle == true
+                measurement.R_truth = R_truth; 
+                measurement.t_truth = t_truth; 
+                measurement.theta = theta;
+                measurement.phi = phi;
+            end
+
+            measurements = [measurements; measurement];
+            continue;
+        end
+        
+        measurement.R_rel = estimate_relative_camera_rotation(matches);
+
+        if is_angle == true
             measurement.R_truth = R_truth; 
             measurement.t_truth = t_truth; 
             measurement.theta = theta;
             measurement.phi = phi;
-            measurements = [measurements; measurement];
-            continue;
         end
-        matches = match_features(prev_features, features);
-        
-        measurement.R_rel = estimate_relative_camera_rotation(matches);
-        measurement.R_truth = R_truth; 
-        measurement.t_truth = t_truth; 
-        measurement.theta = theta;
-        measurement.phi = phi;
         measurements = [measurements; measurement];
         prev_features = features;
     end
@@ -105,7 +136,7 @@ function R = estimate_relative_camera_rotation(matches)
 
     E = reshape(eightp(f1(:, best_inliers), f2(:, best_inliers)),3,3);
     E = T1'*E*T2;
-    P = decomposeE(E, matches(best_inliers(1),:));
+    P = decomposeE(E, matches(best_inliers,:));
     R = P(1:3,1:3);
 end
 
