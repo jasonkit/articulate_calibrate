@@ -12,7 +12,7 @@ close all;
 for i = 1:2
     for j = 1:2
         figure((i-1)*2+j);
-        apriltag_ds = sprintf('%s_%s', ds3{i}, ds4{j});
+        apriltag_ds = sprintf('./real/%s_%s', ds3{i}, ds4{j});
         load(apriltag_ds);
         poses1 = poses(:,:, match_set{(i-1)*2+j}(:,1));
         ts = ts(match_set{(i-1)*2+j}(:,1));
@@ -29,7 +29,7 @@ for i = 1:2
         end
 
         for k = 1:4
-            estimate_ds = sprintf('%s_%d_%s', ds1{i}, k, ds2{j});
+            estimate_ds = sprintf('./real/%s_%d_%s', ds1{i}, k, ds2{j});
             load(estimate_ds);
             poses2 = poses(:,:, match_set{(i-1)*2+j}(:,2));
             

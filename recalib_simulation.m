@@ -1,4 +1,4 @@
-function recalibration_simulation()
+function recalib_simulation()
     load('jpe_result');
     jp = sim_result.jp;
     % noise_level = 1

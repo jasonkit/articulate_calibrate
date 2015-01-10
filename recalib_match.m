@@ -1,23 +1,23 @@
 function recalib_match()
     
     ts1 = {};
-    load('far_left');
+    load('./real/far_left');
     ts1{1} = ts;
-    load('far_right');
+    load('./real/far_right');
     ts1{2} = ts;
-    load('near_left');
+    load('./real/near_left');
     ts1{3} = ts;
-    load('near_right');
+    load('./real/near_right');
     ts1{4} = ts;
     
     ts2 = {};
-    load('A1_1_L');
+    load('./real/A1_1_L');
     ts2{1} = ts;
-    load('A1_1_R');
+    load('./real/A1_1_R');
     ts2{2} = ts;
-    load('A2_1_L');
+    load('./real/A2_1_L');
     ts2{3} = ts;
-    load('A2_1_R');
+    load('./real/A2_1_R');
     ts2{4} = ts;
 
     match_set = {};
